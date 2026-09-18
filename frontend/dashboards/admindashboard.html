@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Admin Dashboard</title>
+        <link rel="stylesheet" href="dashboardstyle.css">
+    </head>
+    <body>
+        <div class="name-button">
+            <h1>Welcome, <span id="username">Guest</span> (Admin)</h1>
+            <div class="nav-buttons">
+                <button id="logoutBtn">Logout</button>
+                <button id="backtol">Back to Home</button>
+            </div>
+        </div>
+        <hr>
+        <div class="header-row">
+            <div id="text"><b>Submissions:</b></div>
+            <div class="filter-bar">
+                <select id="filterType">
+                    <option value="">Type</option>
+                    <option value="all">All</option>
+                    <option value="complaint">Complaint</option>
+                    <option value="feedback">Feedback</option>
+                </select>
+                <select id="filterCategory">
+                    <option value="">Category</option>
+                    <option value="all">All</option>
+                    <option value="canteen">Canteen</option>
+                    <option value="library">Library</option>
+                    <option value="classrooms">Classrooms</option>
+                    <option value="teachers">Teachers</option>
+                    <option value="events">Events</option>
+                </select>
+                <select id="filterStatus">
+                    <option value="">Status</option>
+                    <option value="all">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="inprogress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                </select>
+            </div>
+        </div>
+        <div id="submissions">
+        </div>
+        <div id="updateModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2>Update Complaint Status</h2>
+                <div class="status-options">
+                    <label class="status-option pending">
+                        <input type="radio" name="status" value="pending">Pending
+                    </label>
+                    <label class="status-option inprogress">
+                        <input type="radio" name="status" value="inprogress">In Progress
+                    </label>
+                    <label class="status-option resolved">
+                        <input type="radio" name="status" value="resolved">Resolved
+                    </label>
+                </div>
+                <div class="form-group">
+                    <textarea id="adminNote" placeholder="Add admin note..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+                    <button class="submit-btn" onclick="saveStatus()">Save</button>
+                </div>
+            </div>
+        </div>
+        <script src="../js/app.js"></script><script>
+                const user = CFStorage.ensureRole("admin");
+                const usernameElement = document.getElementById("username");
+                const submissionsElement = document.getElementById("submissions");
+                const updateModalElement = document.getElementById("updateModal");
+                const adminNoteElement = document.getElementById("adminNote");
+                const filterTypeElement = document.getElementById("filterType");
+                const filterCategoryElement = document.getElementById("filterCategory");
+                const filterStatusElement = document.getElementById("filterStatus");
+                const escapeHtml = (value) => String(value ?? "").replace(/[&<>'\"]/g, (character) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":'&#39;','"':'&quot;'}[character]));
+                let activeId = null;
+
+                function render() {
+                    usernameElement.textContent = user.name;
+                    const items = CFStorage.submissions();
+                    submissionsElement.innerHTML = items.length ? "" : '<p class="card">No submissions yet.</p>';
+                    items.forEach((item) => {
+                        const type = String(item.type || "").toLowerCase();
+                        const category = String(item.category || "").trim().toLowerCase();
+                        const status = String(item.status || "pending").toLowerCase().replace(/\s/g, "");
+                        const card = document.createElement("div");
+                        card.className = `card ${type}`;
+                        card.dataset.type = type;
+                        card.dataset.category = category;
+                        card.dataset.status = status;
+                        card.innerHTML = `<div class="content"><b>Title:</b> ${escapeHtml(item.title)}<br><b>Description:</b> ${escapeHtml(item.description)}<br><b>Type:</b> ${escapeHtml(type.charAt(0).toUpperCase() + type.slice(1))}<br><b>Category:</b> ${escapeHtml(item.category)}<br>${type === "complaint" ? `<b>Admin Note:</b> ${escapeHtml(item.admin_note || "None")}<br>` : ""}</div>${type === "complaint" ? `<div class="right-section"><div class="status">Status: <div class="status-circle ${escapeHtml(status)}"></div></div><button class="update-btn">Update</button></div>` : ""}`;
+                        card.querySelector(".update-btn")?.addEventListener("click", () => openModal(item));
+                        submissionsElement.appendChild(card);
+                    });
+                    filter();
+                }
+                function openModal(item) {
+                    activeId = item.id;
+                    document.querySelector(`[name="status"][value="${item.status}"]`).checked = true;
+                    adminNoteElement.value = item.admin_note || "";
+                    updateModalElement.style.display = "flex";
+                }
+                function closeModal() { updateModalElement.style.display = "none"; }
+                function saveStatus() {
+                    const status = document.querySelector('[name="status"]:checked')?.value;
+                    if (!status || !activeId) return;
+                    CFStorage.updateSubmission(activeId, { status, admin_note: adminNoteElement.value.trim() });
+                    closeModal();
+                    render();
+                }
+                function filter() {
+                    const typeFilter = filterTypeElement.value || "all";
+                    const categoryFilter = filterCategoryElement.value || "all";
+                    const statusFilter = filterStatusElement.value || "all";
+                    document.querySelectorAll("#submissions .card").forEach((card) => {
+                        const typeMatch = typeFilter === "all" || typeFilter === card.dataset.type;
+                        const categoryMatch = categoryFilter === "all" || categoryFilter === card.dataset.category;
+                        const statusMatch = statusFilter === "all" || (card.dataset.type === "complaint" && statusFilter === card.dataset.status);
+                        card.style.display = typeMatch && categoryMatch && statusMatch ? "grid" : "none";
+                    });
+                }
+                [filterTypeElement, filterCategoryElement, filterStatusElement].forEach((element) => element.addEventListener("change", filter));
+                document.getElementById("logoutBtn").onclick = () => { CFStorage.logout(); location.href = "../landing/landing.html"; };
+                document.getElementById("backtol").onclick = () => { location.href = "../landing/landing.html"; };
+                render();
+        </script>    
+    </body>   
+</html>

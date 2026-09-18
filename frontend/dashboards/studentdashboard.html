@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Student Dashboard</title>
+        <link rel="stylesheet" href="dashboardstyle.css">
+    </head>
+    <body>
+        <div class="name-button">
+            <h1>Welcome, <span id="username">Guest</span></h1>
+            <div class="nav-buttons">
+                <button id="logoutBtn">Logout</button>
+                <button id="backtol">Back to Home</button>
+            </div>
+        </div>
+        <hr>
+        <div class="header-row">
+            <div id="text">
+                <b>Your Submissions:</b>
+            </div>
+            <div id="add-button">
+                <button onclick="openModal()">Add +</button>
+            </div>
+        </div>
+        <div id="submissions"></div>
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <h2>Submit Complaint / Feedback</h2>
+                <div class="container">
+                    <div class="form-group">
+                        <label><input type="radio" name="type" value="complaint"> 
+                            Complaint &nbsp;&nbsp;
+                            <input type="radio" name="type" value="feedback"> 
+                            Feedback
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <span>Title:</span>
+                        <input id="title" type="text" placeholder="Enter the title"></div>
+                        <div class="form-group">
+                            <span>Description:</span>
+                            <textarea id="description" placeholder="Enter the description"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <span>Category:</span>
+                            <select id="category">
+                                <option value="">Select the category</option>
+                                <option>Canteen</option>
+                                <option>Library</option>
+                                <option>Classrooms</option>
+                                <option>Teachers</option>
+                                <option>Events</option>
+                            </select>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+                            <button class="submit-btn" onclick="submitComplaint()">Submit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <script src="../js/app.js"></script><script>
+            const user = CFStorage.ensureRole("student");
+            const modalElement = document.getElementById("modal");
+            const submissionsElement = document.getElementById("submissions");
+            const usernameElement = document.getElementById("username");
+            const titleElement = document.getElementById("title");
+            const descriptionElement = document.getElementById("description");
+            const categoryElement = document.getElementById("category");
+            const escapeHtml = (value) => String(value ?? "").replace(/[&<>'\"]/g, (character) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[character]));
+
+            function openModal() { modalElement.style.display = "flex"; }
+            function closeModal() { modalElement.style.display = "none"; }
+            function load() {
+                usernameElement.textContent = user.name;
+                const items = CFStorage.submissions().filter((item) => item.userId === user.id);
+                submissionsElement.innerHTML = items.length ? "" : '<p class="card">No submissions yet.</p>';
+                items.forEach((item) => {
+                    const card = document.createElement("div");
+                    card.className = `card ${item.type}`;
+                    card.innerHTML = `<div class="content"><b>Title:</b> ${escapeHtml(item.title)}<br><b>Description:</b> ${escapeHtml(item.description)}<br><b>Type:</b> ${escapeHtml(item.type)}<br><b>Category:</b> ${escapeHtml(item.category)}<br>${item.type === "complaint" ? `<b>Admin Note:</b> ${escapeHtml(item.admin_note || "No response yet")}<br>` : ""}</div>${item.type === "complaint" ? `<div class="right-section"><div class="status">Status:<div class="status-circle ${escapeHtml(item.status)}"></div></div></div>` : ""}`;
+                    submissionsElement.appendChild(card);
+                });
+            }
+            function submitComplaint() {
+                try {
+                    CFStorage.addSubmission({
+                        type: document.querySelector('[name="type"]:checked')?.value,
+                        title: titleElement.value,
+                        description: descriptionElement.value,
+                        category: categoryElement.value
+                    });
+                    closeModal();
+                    titleElement.value = "";
+                    descriptionElement.value = "";
+                    categoryElement.value = "";
+                    document.querySelector('[name="type"]:checked')?.removeAttribute("checked");
+                    document.querySelectorAll('[name="type"]').forEach((input) => { input.checked = false; });
+                    load();
+                } catch (error) { alert(error.message); }
+            }
+            document.getElementById("logoutBtn").onclick = () => { CFStorage.logout(); location.href = "../landing/landing.html"; };
+            document.getElementById("backtol").onclick = () => { location.href = "../landing/landing.html"; };
+            load();
+        </script>
+    </body>
+</html>
